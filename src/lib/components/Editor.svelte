@@ -116,6 +116,32 @@
 		min-height: 50vh;
 	}
 
+	/* Tighten prose-sm spacing — halve default margins */
+	:global(.tiptap p) {
+		margin-top: 0.5em;
+		margin-bottom: 0.5em;
+	}
+
+	:global(.tiptap ul, .tiptap ol) {
+		margin-top: 0.5em;
+		margin-bottom: 0.5em;
+	}
+
+	:global(.tiptap li) {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	:global(.tiptap h1, .tiptap h2, .tiptap h3) {
+		margin-top: 0.75em;
+		margin-bottom: 0.25em;
+	}
+
+	:global(.tiptap blockquote) {
+		margin-top: 0.5em;
+		margin-bottom: 0.5em;
+	}
+
 	:global(.tiptap p.is-editor-empty:first-child::before) {
 		color: #adb5bd;
 		content: attr(data-placeholder);
@@ -134,12 +160,22 @@
 		display: flex;
 		align-items: flex-start;
 		gap: 0.5rem;
-		padding: 0.25rem 0;
+		padding: 0;
 	}
 
 	:global(.tiptap ul[data-type='taskList'] li label) {
 		display: flex;
 		align-items: center;
+		height: 1.75em;
+	}
+
+	:global(.tiptap ul[data-type='taskList'] li > div) {
+		flex: 1;
+		min-width: 0;
+	}
+
+	:global(.tiptap ul[data-type='taskList'] li > div > p:first-child) {
+		margin-top: 0;
 	}
 
 	:global(.tiptap ul[data-type='taskList'] li label input[type='checkbox']) {
@@ -149,7 +185,7 @@
 		accent-color: #2563eb;
 	}
 
-	:global(.tiptap ul[data-type='taskList'] li[data-checked='true'] > div > p) {
+	:global(.tiptap ul[data-type='taskList'] li[data-checked='true'] > div) {
 		text-decoration: line-through;
 		color: #9ca3af;
 	}
