@@ -26,9 +26,19 @@ jobs:
 
       - run: npm ci
 
+      - name: Detect base path
+        id: base
+        run: |
+          if [ -f static/CNAME ]; then
+            echo "path=" >> $GITHUB_OUTPUT
+          else
+            echo "path=/${{ github.event.repository.name }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          BASE_PATH: ${{ steps.base.outputs.path }}
         run: npm run build
 
       - uses: actions/upload-pages-artifact@v3
