@@ -168,7 +168,14 @@
 	<!-- File list -->
 	<div class="flex-1 overflow-y-auto">
 		{#if $files.loading}
-			<p class="py-4 text-center text-sm text-gray-400">Loading...</p>
+			<div class="space-y-2 py-2">
+				{#each Array(4) as _}
+					<div class="flex items-center gap-2 rounded-lg px-2 py-2">
+						<div class="h-4 w-4 animate-pulse rounded bg-gray-200"></div>
+						<div class="h-4 flex-1 animate-pulse rounded bg-gray-200"></div>
+					</div>
+				{/each}
+			</div>
 		{:else if $files.currentFiles.length === 0}
 			<p class="py-4 text-center text-sm text-gray-400">
 				Empty folder.<br />Create a list to get started.
@@ -231,7 +238,18 @@
 	</div>
 
 	{#if $files.error}
-		<p class="mt-2 rounded bg-red-50 px-3 py-2 text-sm text-red-600">{$files.error}</p>
+		<div class="mt-2 flex items-start gap-2 rounded bg-red-50 px-3 py-2">
+			<p class="flex-1 text-sm text-red-600">{$files.error}</p>
+			<button
+				onclick={() => files.update((s) => ({ ...s, error: null }))}
+				class="shrink-0 text-red-400 hover:text-red-600"
+				aria-label="Dismiss error"
+			>
+				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
+		</div>
 	{/if}
 </div>
 

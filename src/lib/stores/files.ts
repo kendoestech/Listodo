@@ -46,6 +46,10 @@ const initialState: FilesState = {
 
 export const files = writable<FilesState>(initialState);
 
+// Save status: 'idle' | 'saving' | 'saved' | 'error'
+export const saveStatus = writable<'idle' | 'saving' | 'saved' | 'error'>('idle');
+let savedTimeout: ReturnType<typeof setTimeout> | null = null;
+
 // Track folder navigation history for breadcrumbs
 export const folderPath = writable<DriveFile[]>([]);
 
@@ -174,13 +178,19 @@ export function saveFile(content: string): void {
 
 	// Debounced save to Drive
 	if (saveTimeout) clearTimeout(saveTimeout);
+	if (savedTimeout) clearTimeout(savedTimeout);
+	saveStatus.set('saving');
+
 	saveTimeout = setTimeout(async () => {
 		const fileId = get(files).openFileId;
 		if (!fileId) return;
 
 		try {
 			await driveUpdateContent(fileId, content);
+			saveStatus.set('saved');
+			savedTimeout = setTimeout(() => saveStatus.set('idle'), 2000);
 		} catch (e) {
+			saveStatus.set('error');
 			files.update((s) => ({
 				...s,
 				error: e instanceof Error ? e.message : 'Failed to save'

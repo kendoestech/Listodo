@@ -1,16 +1,40 @@
 <script lang="ts">
 	import { auth, signOut } from '$lib/stores/auth';
-	import { files, closeFile, saveFile } from '$lib/stores/files';
+	import { files, closeFile, saveFile, saveStatus } from '$lib/stores/files';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import Editor from '$lib/components/Editor.svelte';
+	import FilterBar, { type Filter } from '$lib/components/FilterBar.svelte';
+	import type { Editor as TiptapEditor } from '@tiptap/core';
 
 	let sidebarOpen = $state(true);
+	let filter = $state<Filter>('all');
+	let editorInstance = $state<TiptapEditor | null>(null);
+	let editorTick = $state(0);
 
 	function closeSidebarOnMobile() {
 		if (window.innerWidth < 768) {
 			sidebarOpen = false;
 		}
+		filter = 'all';
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		const mod = e.ctrlKey || e.metaKey;
+		if (mod && e.key === 's') {
+			e.preventDefault(); // prevent browser save dialog
+		}
+		if (e.key === 'Escape' && $files.openFileId) {
+			closeFile();
+		}
+		if (mod && e.key === 'b') {
+			// Toggle sidebar
+			e.preventDefault();
+			sidebarOpen = !sidebarOpen;
+		}
 	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="flex h-screen flex-col bg-gray-50">
 	<!-- Header -->
@@ -81,13 +105,25 @@
 							Close
 						</button>
 					</div>
-					<textarea
-						value={$files.openFileContent}
-						oninput={(e) => saveFile(e.currentTarget.value)}
-						class="min-h-[60vh] w-full rounded-lg border border-gray-200 bg-white p-4 font-mono text-sm focus:border-blue-400 focus:outline-none"
-						placeholder="Start writing..."
-					></textarea>
-					<p class="mt-2 text-xs text-gray-400">Auto-saves to Google Drive</p>
+					<FilterBar editor={editorInstance} {filter} onfilterchange={(f) => (filter = f)} tick={editorTick} />
+					<Editor
+						content={$files.openFileContent}
+						onchange={saveFile}
+						{filter}
+						oneditor={(e) => (editorInstance = e)}
+						ontick={() => editorTick++}
+					/>
+					<p class="mt-2 text-xs text-gray-400">
+						{#if $saveStatus === 'saving'}
+							Saving...
+						{:else if $saveStatus === 'saved'}
+							Saved to Google Drive
+						{:else if $saveStatus === 'error'}
+							<span class="text-red-500">Save failed</span>
+						{:else}
+							Auto-saves to Google Drive
+						{/if}
+					</p>
 				</div>
 			{:else}
 				<div class="flex h-full items-center justify-center">

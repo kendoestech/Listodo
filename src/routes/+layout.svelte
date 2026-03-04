@@ -32,14 +32,16 @@
 </svelte:head>
 
 {#if $auth.loading && !$auth.initialized}
-	<div class="flex min-h-screen items-center justify-center bg-gray-50">
-		<p class="text-lg text-gray-500">Loading...</p>
+	<div class="flex min-h-screen flex-col items-center justify-center bg-gray-50">
+		<div class="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
+		<p class="mt-3 text-sm text-gray-500">Loading...</p>
 	</div>
 {:else if !$auth.authenticated}
 	<LoginPage />
 {:else if !driveReady}
-	<div class="flex min-h-screen items-center justify-center bg-gray-50">
-		<p class="text-lg text-gray-500">Connecting to Google Drive...</p>
+	<div class="flex min-h-screen flex-col items-center justify-center bg-gray-50">
+		<div class="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
+		<p class="mt-3 text-sm text-gray-500">Connecting to Google Drive...</p>
 	</div>
 {:else}
 	{@render children()}

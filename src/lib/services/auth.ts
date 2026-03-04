@@ -50,6 +50,17 @@ export async function initAuth(): Promise<void> {
 		});
 	});
 
+	// Restore token from sessionStorage if available
+	const saved = sessionStorage.getItem('listodo_token');
+	if (saved) {
+		try {
+			const token = JSON.parse(saved);
+			gapi.client.setToken(token);
+		} catch {
+			sessionStorage.removeItem('listodo_token');
+		}
+	}
+
 	tokenClient = google.accounts.oauth2.initTokenClient({
 		client_id: CLIENT_ID,
 		scope: SCOPES,
@@ -57,6 +68,11 @@ export async function initAuth(): Promise<void> {
 			if (response.error) {
 				onAuthCallback?.(false);
 				return;
+			}
+			// Persist token to sessionStorage
+			const token = gapi.client.getToken();
+			if (token) {
+				sessionStorage.setItem('listodo_token', JSON.stringify(token));
 			}
 			onAuthCallback?.(true);
 		}
@@ -74,12 +90,24 @@ export function signIn(): Promise<boolean> {
 	});
 }
 
+export function refreshToken(): Promise<boolean> {
+	return new Promise((resolve) => {
+		if (!tokenClient) {
+			resolve(false);
+			return;
+		}
+		onAuthCallback = resolve;
+		tokenClient.requestAccessToken({ prompt: '' });
+	});
+}
+
 export function signOut(): void {
 	const token = gapi.client.getToken();
 	if (token) {
 		google.accounts.oauth2.revoke(token.access_token, () => {});
 		gapi.client.setToken(null);
 	}
+	sessionStorage.removeItem('listodo_token');
 }
 
 export function isSignedIn(): boolean {
