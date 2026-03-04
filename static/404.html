@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Listodo</title>
+  <script>
+    // SPA redirect: GitHub Pages serves this for all 404s.
+    // Redirect to index.html so SvelteKit handles routing.
+    sessionStorage.setItem('redirect', window.location.href);
+    window.location.replace('/');
+  </script>
+</head>
+<body></body>
+</html>
