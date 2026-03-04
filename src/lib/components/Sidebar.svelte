@@ -5,6 +5,7 @@
 		navigateToFolder,
 		navigateUp,
 		navigateToRoot,
+		navigateToPathIndex,
 		openFile,
 		createNewFile,
 		createNewFolder,
@@ -81,6 +82,10 @@
 		}
 	}
 
+	function displayName(name: string): string {
+		return name.replace(/\.md$/i, '');
+	}
+
 	async function handleFileClick(file: DriveFile) {
 		await openFile(file.id);
 		onfileopen?.();
@@ -90,14 +95,22 @@
 <div class="flex h-full flex-col">
 	<!-- Breadcrumb -->
 	<div class="mb-3 flex flex-wrap items-center gap-1 text-sm">
-		<button onclick={navigateToRoot} class="font-medium text-blue-600 hover:underline">
-			Listodo
-		</button>
-		{#each $folderPath as folder}
-			<span class="text-gray-400">/</span>
-			<button onclick={() => navigateToFolder(folder)} class="text-blue-600 hover:underline">
-				{folder.name}
+		{#if $folderPath.length > 0}
+			<button onclick={navigateToRoot} class="font-medium text-blue-600 hover:underline">
+				Drive
 			</button>
+		{:else}
+			<span class="font-medium text-gray-700">Drive</span>
+		{/if}
+		{#each $folderPath as folder, i}
+			<span class="text-gray-400">/</span>
+			{#if i < $folderPath.length - 1}
+				<button onclick={() => navigateToPathIndex(i)} class="text-blue-600 hover:underline">
+					{folder.name}
+				</button>
+			{:else}
+				<span class="font-medium text-gray-700">{folder.name}</span>
+			{/if}
 		{/each}
 	</div>
 
@@ -185,6 +198,7 @@
 				{#each $files.currentFiles as file}
 					<li
 						class="group flex items-center justify-between rounded-lg px-2 py-2 hover:bg-gray-100"
+						class:bg-blue-50={!isFolder(file) && $files.openFileId === file.id}
 						oncontextmenu={(e) => handleContextMenu(e, file)}
 					>
 						{#if renamingId === file.id}
@@ -211,13 +225,12 @@
 								class="flex min-w-0 flex-1 items-center gap-2 text-sm"
 								class:text-blue-700={$files.openFileId === file.id}
 								class:font-medium={$files.openFileId === file.id}
-								class:bg-blue-50={$files.openFileId === file.id}
 								class:text-gray-700={$files.openFileId !== file.id}
 							>
 								<svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 								</svg>
-								<span class="truncate">{file.name}</span>
+								<span class="truncate">{displayName(file.name)}</span>
 							</button>
 						{/if}
 

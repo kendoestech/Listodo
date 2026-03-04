@@ -61,6 +61,25 @@
 
 		<span class="mx-1 h-5 w-px shrink-0 bg-gray-300"></span>
 
+		<!-- Text size & dim -->
+		<button onmousedown={cmd((e) => e.chain().focus().toggleTextSize('lg').run())}
+			class="rounded px-1.5 py-1 text-sm font-medium transition-colors"
+			class:bg-blue-100={editor.isActive('textSize', { size: 'lg' })} class:text-blue-700={editor.isActive('textSize', { size: 'lg' })}
+			class:text-gray-600={!editor.isActive('textSize', { size: 'lg' })} class:hover:bg-gray-200={!editor.isActive('textSize', { size: 'lg' })}
+			title="Large Text"><span style="font-size: 1.15em;">A</span></button>
+		<button onmousedown={cmd((e) => e.chain().focus().toggleTextSize('sm').run())}
+			class="rounded px-1.5 py-1 text-sm font-medium transition-colors"
+			class:bg-blue-100={editor.isActive('textSize', { size: 'sm' })} class:text-blue-700={editor.isActive('textSize', { size: 'sm' })}
+			class:text-gray-600={!editor.isActive('textSize', { size: 'sm' })} class:hover:bg-gray-200={!editor.isActive('textSize', { size: 'sm' })}
+			title="Small Text"><span style="font-size: 0.75em;">A</span></button>
+		<button onmousedown={cmd((e) => e.chain().focus().toggleTextDim().run())}
+			class="rounded px-1.5 py-1 text-sm font-medium transition-colors"
+			class:bg-blue-100={editor.isActive('textDim')} class:text-blue-700={editor.isActive('textDim')}
+			class:text-gray-600={!editor.isActive('textDim')} class:hover:bg-gray-200={!editor.isActive('textDim')}
+			title="Dim Text"><span style="opacity: 0.5;">A</span></button>
+
+		<span class="mx-1 h-5 w-px shrink-0 bg-gray-300"></span>
+
 		<!-- Headings -->
 		<button onmousedown={cmd((e) => e.chain().focus().toggleHeading({ level: 1 }).run())}
 			class="rounded px-2 py-1 text-xs font-bold transition-colors"

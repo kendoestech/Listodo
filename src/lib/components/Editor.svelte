@@ -13,6 +13,8 @@
 	import CodeBlock from '@tiptap/extension-code-block';
 	import Placeholder from '@tiptap/extension-placeholder';
 	import { Markdown } from 'tiptap-markdown';
+	import { TextSize } from '$lib/extensions/text-size';
+	import { TextDim } from '$lib/extensions/text-dim';
 	import Toolbar from './Toolbar.svelte';
 
 	import type { Filter } from './FilterBar.svelte';
@@ -29,6 +31,7 @@
 
 	let element: HTMLDivElement;
 	let editor = $state<Editor | null>(null);
+	let editorRef: Editor | null = null; // non-reactive ref to avoid effect cycles
 	let updatingFromProp = false;
 
 	function getMarkdown(e: Editor): string {
@@ -36,7 +39,7 @@
 	}
 
 	onMount(() => {
-		editor = new Editor({
+		editorRef = new Editor({
 			element,
 			extensions: [
 				StarterKit.configure({
@@ -61,7 +64,9 @@
 					html: false,
 					transformPastedText: true,
 					transformCopiedText: true
-				})
+				}),
+				TextSize,
+				TextDim
 			],
 			content,
 			editorProps: {
@@ -75,29 +80,30 @@
 				onchange(md);
 			},
 			onTransaction: () => {
+				if (updatingFromProp) return;
 				// Trigger Svelte reactivity for toolbar button states and filter counts
-				editor = editor;
-				oneditor?.(editor);
+				editor = editorRef;
 				ontick?.();
 			}
 		});
+		editor = editorRef;
 		oneditor?.(editor);
 	});
 
 	// Update editor content when prop changes (e.g. switching files)
 	$effect(() => {
-		if (editor && content !== undefined) {
-			const currentMd = getMarkdown(editor);
+		if (editorRef && content !== undefined) {
+			const currentMd = getMarkdown(editorRef);
 			if (content !== currentMd) {
 				updatingFromProp = true;
-				editor.commands.setContent(content);
+				editorRef.commands.setContent(content);
 				updatingFromProp = false;
 			}
 		}
 	});
 
 	onDestroy(() => {
-		editor?.destroy();
+		editorRef?.destroy();
 	});
 </script>
 
@@ -140,6 +146,26 @@
 	:global(.tiptap blockquote) {
 		margin-top: 0.5em;
 		margin-bottom: 0.5em;
+	}
+
+	/* Custom text size marks */
+	:global(.tiptap .text-size-lg) {
+		font-size: 1.25em;
+		line-height: 1.4;
+	}
+
+	:global(.tiptap .text-size-sm) {
+		font-size: 0.8em;
+	}
+
+	:global(.tiptap p:has(.text-size-sm)) {
+		line-height: 1.2;
+		margin-top: 0.25em;
+		margin-bottom: 0.25em;
+	}
+
+	:global(.tiptap .text-dim) {
+		color: rgba(0, 0, 0, 0.5);
 	}
 
 	:global(.tiptap p.is-editor-empty:first-child::before) {

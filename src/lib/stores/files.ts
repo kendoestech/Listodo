@@ -108,6 +108,13 @@ export async function navigateToFolder(folder: DriveFile): Promise<void> {
 	await loadFolder(folder.id);
 }
 
+export async function navigateToPathIndex(index: number): Promise<void> {
+	const path = get(folderPath);
+	if (index < 0 || index >= path.length) return;
+	folderPath.set(path.slice(0, index + 1));
+	await loadFolder(path[index].id);
+}
+
 export async function navigateUp(): Promise<void> {
 	const path = get(folderPath);
 	if (path.length === 0) return;

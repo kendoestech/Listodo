@@ -11,6 +11,12 @@
 	let editorInstance = $state<TiptapEditor | null>(null);
 	let editorTick = $state(0);
 
+	let openFileName = $derived.by(() => {
+		if (!$files.openFileId) return null;
+		const file = $files.currentFiles.find((f) => f.id === $files.openFileId);
+		return file ? file.name.replace(/\.md$/i, '') : 'Untitled';
+	});
+
 	function closeSidebarOnMobile() {
 		if (window.innerWidth < 768) {
 			sidebarOpen = false;
@@ -34,16 +40,20 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{openFileName ? `Listodo - ${openFileName}` : 'Listodo'}</title>
+</svelte:head>
+
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="flex h-screen flex-col bg-gray-50">
 	<!-- Header -->
 	<header class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-		<div class="flex items-center gap-3">
+		<div class="flex min-w-0 items-center gap-3">
 			<!-- Hamburger button (mobile) -->
 			<button
 				onclick={() => (sidebarOpen = !sidebarOpen)}
-				class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 md:hidden"
+				class="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 md:hidden"
 				aria-label="Toggle sidebar"
 			>
 				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,10 +64,24 @@
 					{/if}
 				</svg>
 			</button>
-			<h1 class="text-xl font-bold text-gray-900">Listodo</h1>
+			<div class="flex min-w-0 items-center gap-1.5">
+				<h1 class="shrink-0 text-xl font-bold text-gray-900">Listodo</h1>
+				{#if openFileName}
+					<span class="text-xl text-gray-300">-</span>
+					<span class="truncate text-lg text-gray-600">{openFileName}</span>
+				{/if}
+			</div>
 		</div>
 
 		<div class="flex items-center gap-3">
+			{#if openFileName}
+				<button
+					onclick={closeFile}
+					class="rounded px-3 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+				>
+					Close
+				</button>
+			{/if}
 			{#if $auth.user}
 				<img src={$auth.user.picture} alt="" class="h-7 w-7 rounded-full" />
 				<span class="hidden text-sm text-gray-600 sm:inline">{$auth.user.name}</span>
@@ -72,18 +96,9 @@
 	</header>
 
 	<div class="relative flex flex-1 overflow-hidden">
-		<!-- Sidebar overlay (mobile) -->
-		{#if sidebarOpen}
-			<button
-				onclick={() => (sidebarOpen = false)}
-				class="fixed inset-0 z-20 bg-black/30 md:hidden"
-				aria-label="Close sidebar"
-			></button>
-		{/if}
-
 		<!-- Sidebar -->
 		<aside
-			class="absolute inset-y-0 left-0 z-30 w-72 border-r border-gray-200 bg-white p-4 transition-transform duration-200 md:relative md:z-0 md:translate-x-0"
+			class="absolute inset-y-0 left-0 z-30 w-full border-r border-gray-200 bg-white p-4 transition-transform duration-200 md:relative md:z-0 md:w-80 md:translate-x-0"
 			class:translate-x-0={sidebarOpen}
 			class:-translate-x-full={!sidebarOpen}
 		>
@@ -94,17 +109,6 @@
 		<main class="flex-1 overflow-y-auto p-4 md:p-6">
 			{#if $files.openFileId && $files.openFileContent !== null}
 				<div class="mx-auto max-w-3xl">
-					<div class="mb-4 flex items-center justify-between">
-						<h2 class="text-lg font-medium text-gray-800">
-							{$files.currentFiles.find((f) => f.id === $files.openFileId)?.name || 'Untitled'}
-						</h2>
-						<button
-							onclick={closeFile}
-							class="rounded px-3 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-						>
-							Close
-						</button>
-					</div>
 					<FilterBar editor={editorInstance} {filter} onfilterchange={(f) => (filter = f)} tick={editorTick} />
 					<Editor
 						content={$files.openFileContent}
