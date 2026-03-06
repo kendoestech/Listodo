@@ -32,6 +32,7 @@
 	let element: HTMLDivElement;
 	let editor = $state<Editor | null>(null);
 	let editorRef: Editor | null = null; // non-reactive ref to avoid effect cycles
+	let editingRef = false; // non-reactive ref for use in editor callbacks
 	let updatingFromProp = false;
 
 	function getMarkdown(e: Editor): string {
@@ -41,16 +42,12 @@
 	onMount(() => {
 		editorRef = new Editor({
 			element,
-			editable: false,
 			extensions: [
 				StarterKit.configure({
 					codeBlock: false
 				}),
 				TaskList,
-				TaskItem.configure({
-					nested: true,
-					onReadOnlyChecked: () => true
-				}),
+				TaskItem.configure({ nested: true }),
 				Link.configure({
 					openOnClick: false,
 					HTMLAttributes: { class: 'text-blue-600 underline' }
@@ -76,6 +73,19 @@
 			editorProps: {
 				attributes: {
 					class: 'prose prose-sm max-w-none focus:outline-none min-h-[50vh] px-4 py-3'
+				},
+				handleKeyDown: () => !editingRef,
+				handleKeyPress: () => !editingRef,
+				handlePaste: () => !editingRef,
+				handleDrop: () => !editingRef,
+				handleDOMEvents: {
+					beforeinput: (_view: unknown, event: Event) => {
+						if (!editingRef) {
+							event.preventDefault();
+							return true;
+						}
+						return false;
+					}
 				}
 			},
 			onUpdate: ({ editor: e }) => {
@@ -94,10 +104,15 @@
 		oneditor?.(editor);
 	});
 
-	// Sync editing mode to editor
+	// Sync editing mode ref and editor CSS class
 	$effect(() => {
+		editingRef = editing;
 		if (editorRef) {
-			editorRef.setEditable(editing);
+			if (editing) {
+				editorRef.view.dom.classList.add('is-editing');
+			} else {
+				editorRef.view.dom.classList.remove('is-editing');
+			}
 		}
 	});
 
@@ -128,6 +143,11 @@
 <style>
 	:global(.tiptap) {
 		min-height: 50vh;
+	}
+
+	/* Hide cursor and prevent text selection when not editing */
+	:global(.tiptap:not(.is-editing)) {
+		caret-color: transparent;
 	}
 
 	/* Tighten prose-sm spacing — halve default margins */
