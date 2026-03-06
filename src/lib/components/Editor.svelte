@@ -40,6 +40,11 @@
 		return (e.storage as Record<string, any>).markdown.getMarkdown();
 	}
 
+	/** Find the scrollable ancestor (<main> with overflow-y-auto) */
+	function getScrollParent(): HTMLElement | null {
+		return element?.closest('.overflow-y-auto') as HTMLElement | null;
+	}
+
 	onMount(() => {
 		editorRef = new Editor({
 			element,
@@ -92,33 +97,53 @@
 		editor = editorRef;
 		oneditor?.(editor);
 
-		// Intercept checkbox clicks in read-only mode: temporarily enable editing
-		// so the TaskItem extension creates a proper transaction, then restore.
+		// Intercept checkbox changes to preserve scroll position and handle
+		// read-only mode toggling.
 		element.addEventListener('change', (e) => {
 			const target = e.target as HTMLElement;
 			if (
-				target.tagName === 'INPUT' &&
-				(target as HTMLInputElement).type === 'checkbox' &&
-				!editingRef &&
-				!processingCheckbox &&
-				editorRef
-			) {
+				target.tagName !== 'INPUT' ||
+				(target as HTMLInputElement).type !== 'checkbox'
+			) return;
+
+			const scrollParent = getScrollParent();
+			const savedScroll = scrollParent?.scrollTop ?? 0;
+
+			if (!editingRef && !processingCheckbox && editorRef) {
+				// Read-only mode: temporarily enable editing so TaskItem creates
+				// a proper ProseMirror transaction for the checkbox toggle.
 				const checked = (target as HTMLInputElement).checked;
 				// Revert the visual toggle — we'll redo it via a proper transaction
 				(target as HTMLInputElement).checked = !checked;
 
-				// Temporarily enable editing, toggle the checkbox, then disable
 				processingCheckbox = true;
 				editorRef.setEditable(true);
 				// Re-trigger the change so the editable code path runs
 				(target as HTMLInputElement).checked = checked;
 				target.dispatchEvent(new Event('change', { bubbles: true }));
 				processingCheckbox = false;
-				// Restore read-only after the transaction processes
+
+				// Restore read-only and scroll position after the transaction
 				requestAnimationFrame(() => {
 					if (!editingRef && editorRef) {
 						editorRef.setEditable(false);
 					}
+					if (scrollParent) scrollParent.scrollTop = savedScroll;
+				});
+			} else if (editingRef && editorRef) {
+				// Editing mode: save and restore selection + scroll so the
+				// checkbox toggle doesn't jump cursor to top of document.
+				const savedSelection = editorRef.state.selection;
+				requestAnimationFrame(() => {
+					if (editorRef) {
+						// Restore the text selection to where it was before
+						const { tr } = editorRef.state;
+						tr.setSelection(savedSelection.map(tr.doc, tr.mapping));
+						editorRef.view.dispatch(tr);
+						// Blur the checkbox so the virtual keyboard doesn't open
+						(target as HTMLInputElement).blur();
+					}
+					if (scrollParent) scrollParent.scrollTop = savedScroll;
 				});
 			}
 		}, true); // capture phase to run before TaskItem's handler
