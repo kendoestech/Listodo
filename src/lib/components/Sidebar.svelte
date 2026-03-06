@@ -18,9 +18,10 @@
 
 	interface Props {
 		onfileopen?: () => void;
+		onsignout?: () => void;
 	}
 
-	let { onfileopen }: Props = $props();
+	let { onfileopen, onsignout }: Props = $props();
 
 	let newFileName = $state('');
 	let newFolderName = $state('');
@@ -212,9 +213,9 @@
 						{:else if isFolder(file)}
 							<button
 								onclick={() => navigateToFolder(file)}
-								class="flex min-w-0 flex-1 items-center gap-2 text-sm text-gray-800"
+								class="flex min-w-0 flex-1 items-center gap-2 text-lg text-gray-800"
 							>
-								<svg class="h-4 w-4 shrink-0 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+								<svg class="h-5 w-5 shrink-0 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
 									<path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
 								</svg>
 								<span class="truncate">{file.name}</span>
@@ -222,12 +223,12 @@
 						{:else}
 							<button
 								onclick={() => handleFileClick(file)}
-								class="flex min-w-0 flex-1 items-center gap-2 text-sm"
+								class="flex min-w-0 flex-1 items-center gap-2 text-lg"
 								class:text-blue-700={$files.openFileId === file.id}
 								class:font-medium={$files.openFileId === file.id}
 								class:text-gray-700={$files.openFileId !== file.id}
 							>
-								<svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<svg class="h-5 w-5 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 								</svg>
 								<span class="truncate">{displayName(file.name)}</span>
@@ -248,6 +249,16 @@
 				{/each}
 			</ul>
 		{/if}
+	</div>
+
+	<!-- Sign out -->
+	<div class="mt-2 border-t border-gray-200 pt-3">
+		<button
+			onclick={() => onsignout?.()}
+			class="w-full text-sm text-gray-400 hover:text-gray-600"
+		>
+			Sign out
+		</button>
 	</div>
 
 	{#if $files.error}

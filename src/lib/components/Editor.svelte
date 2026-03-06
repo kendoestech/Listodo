@@ -15,7 +15,6 @@
 	import { Markdown } from 'tiptap-markdown';
 	import { TextSize } from '$lib/extensions/text-size';
 	import { TextDim } from '$lib/extensions/text-dim';
-	import Toolbar from './Toolbar.svelte';
 
 	import type { Filter } from './FilterBar.svelte';
 
@@ -23,11 +22,12 @@
 		content: string;
 		onchange: (markdown: string) => void;
 		filter?: Filter;
+		editing?: boolean;
 		oneditor?: (editor: Editor | null) => void;
 		ontick?: () => void;
 	}
 
-	let { content, onchange, filter = 'all', oneditor, ontick }: Props = $props();
+	let { content, onchange, filter = 'all', editing = false, oneditor, ontick }: Props = $props();
 
 	let element: HTMLDivElement;
 	let editor = $state<Editor | null>(null);
@@ -41,12 +41,16 @@
 	onMount(() => {
 		editorRef = new Editor({
 			element,
+			editable: false,
 			extensions: [
 				StarterKit.configure({
 					codeBlock: false
 				}),
 				TaskList,
-				TaskItem.configure({ nested: true }),
+				TaskItem.configure({
+					nested: true,
+					onReadOnlyChecked: () => true
+				}),
 				Link.configure({
 					openOnClick: false,
 					HTMLAttributes: { class: 'text-blue-600 underline' }
@@ -90,6 +94,13 @@
 		oneditor?.(editor);
 	});
 
+	// Sync editing mode to editor
+	$effect(() => {
+		if (editorRef) {
+			editorRef.setEditable(editing);
+		}
+	});
+
 	// Update editor content when prop changes (e.g. switching files)
 	$effect(() => {
 		if (editorRef && content !== undefined) {
@@ -107,15 +118,12 @@
 	});
 </script>
 
-<div class="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">
-	<Toolbar {editor} />
-	<div
-		bind:this={element}
-		class="flex-1 overflow-y-auto"
-		class:filter-incomplete={filter === 'incomplete'}
-		class:filter-completed={filter === 'completed'}
-	></div>
-</div>
+<div
+	bind:this={element}
+	class="overflow-hidden rounded-lg border border-gray-200 bg-white"
+	class:filter-incomplete={filter === 'incomplete'}
+	class:filter-completed={filter === 'completed'}
+></div>
 
 <style>
 	:global(.tiptap) {

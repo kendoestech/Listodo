@@ -1,15 +1,27 @@
 <script lang="ts">
 	import { auth, signOut } from '$lib/stores/auth';
-	import { files, closeFile, saveFile, saveStatus } from '$lib/stores/files';
+	import { files, saveFile, saveStatus } from '$lib/stores/files';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Editor from '$lib/components/Editor.svelte';
+	import Toolbar from '$lib/components/Toolbar.svelte';
 	import FilterBar, { type Filter } from '$lib/components/FilterBar.svelte';
 	import type { Editor as TiptapEditor } from '@tiptap/core';
 
 	let sidebarOpen = $state(true);
 	let filter = $state<Filter>('all');
+	let editing = $state(false);
 	let editorInstance = $state<TiptapEditor | null>(null);
 	let editorTick = $state(0);
+
+	// Reset editing mode when switching files
+	let prevFileId: string | null = null;
+	$effect(() => {
+		const currentId = $files.openFileId;
+		if (currentId !== prevFileId) {
+			prevFileId = currentId;
+			editing = false;
+		}
+	});
 
 	let openFileName = $derived.by(() => {
 		if (!$files.openFileId) return null;
@@ -28,9 +40,6 @@
 		const mod = e.ctrlKey || e.metaKey;
 		if (mod && e.key === 's') {
 			e.preventDefault(); // prevent browser save dialog
-		}
-		if (e.key === 'Escape' && $files.openFileId) {
-			closeFile();
 		}
 		if (mod && e.key === 'b') {
 			// Toggle sidebar
@@ -74,24 +83,24 @@
 		</div>
 
 		<div class="flex items-center gap-3">
-			{#if openFileName}
-				<button
-					onclick={closeFile}
-					class="rounded px-3 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-				>
-					Close
-				</button>
-			{/if}
 			{#if $auth.user}
 				<img src={$auth.user.picture} alt="" class="h-7 w-7 rounded-full" />
 				<span class="hidden text-sm text-gray-600 sm:inline">{$auth.user.name}</span>
 			{/if}
-			<button
-				onclick={signOut}
-				class="rounded border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
-			>
-				Sign out
-			</button>
+			{#if openFileName}
+				<button
+					onclick={() => (editing = !editing)}
+					class="rounded border px-3 py-1 text-sm font-medium transition-colors"
+					class:bg-blue-600={editing}
+					class:text-white={editing}
+					class:border-blue-600={editing}
+					class:border-gray-300={!editing}
+					class:text-gray-600={!editing}
+					class:hover:bg-gray-50={!editing}
+				>
+					{editing ? 'Editing' : 'Edit'}
+				</button>
+			{/if}
 		</div>
 	</header>
 
@@ -102,32 +111,45 @@
 			class:translate-x-0={sidebarOpen}
 			class:-translate-x-full={!sidebarOpen}
 		>
-			<Sidebar onfileopen={closeSidebarOnMobile} />
+			<Sidebar onfileopen={closeSidebarOnMobile} onsignout={signOut} />
 		</aside>
 
 		<!-- Content Panel -->
-		<main class="flex-1 overflow-y-auto p-4 md:p-6">
+		<main class="flex-1 overflow-y-auto">
 			{#if $files.openFileId && $files.openFileContent !== null}
-				<div class="mx-auto max-w-3xl">
-					<FilterBar editor={editorInstance} {filter} onfilterchange={(f) => (filter = f)} tick={editorTick} />
-					<Editor
-						content={$files.openFileContent}
-						onchange={saveFile}
-						{filter}
-						oneditor={(e) => (editorInstance = e)}
-						ontick={() => editorTick++}
-					/>
-					<p class="mt-2 text-xs text-gray-400">
-						{#if $saveStatus === 'saving'}
-							Saving...
-						{:else if $saveStatus === 'saved'}
-							Saved to Google Drive
-						{:else if $saveStatus === 'error'}
-							<span class="text-red-500">Save failed</span>
-						{:else}
-							Auto-saves to Google Drive
+				<!-- Sticky filter + toolbar zone -->
+				<div class="sticky top-0 z-20 border-b border-gray-200 bg-gray-50">
+					<div class="mx-auto max-w-3xl px-4 md:px-6">
+						<FilterBar editor={editorInstance} {filter} onfilterchange={(f) => (filter = f)} tick={editorTick} />
+						{#if editing}
+							<Toolbar editor={editorInstance} />
 						{/if}
-					</p>
+					</div>
+				</div>
+
+				<!-- Document content -->
+				<div class="px-4 pt-4 md:px-6 md:pt-6">
+					<div class="mx-auto max-w-3xl">
+						<Editor
+							content={$files.openFileContent}
+							onchange={saveFile}
+							{filter}
+							{editing}
+							oneditor={(e) => (editorInstance = e)}
+							ontick={() => editorTick++}
+						/>
+						<p class="mt-2 text-xs text-gray-400">
+							{#if $saveStatus === 'saving'}
+								Saving...
+							{:else if $saveStatus === 'saved'}
+								Saved to Google Drive
+							{:else if $saveStatus === 'error'}
+								<span class="text-red-500">Save failed</span>
+							{:else}
+								Auto-saves to Google Drive
+							{/if}
+						</p>
+					</div>
 				</div>
 			{:else}
 				<div class="flex h-full items-center justify-center">

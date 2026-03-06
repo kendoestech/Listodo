@@ -36,7 +36,6 @@
 
 	let emptyMessage = $derived.by(() => {
 		if (filter === 'incomplete' && incomplete === 0) return 'All tasks are done!';
-		if (filter === 'completed' && completed === 0) return 'No completed tasks yet.';
 		return null;
 	});
 
