@@ -34,6 +34,7 @@
 	let editorRef: Editor | null = null; // non-reactive ref to avoid effect cycles
 	let editingRef = false; // non-reactive ref for use in editor callbacks
 	let updatingFromProp = false;
+	let processingCheckbox = false; // guard against re-entrant checkbox handler
 
 	function getMarkdown(e: Editor): string {
 		return (e.storage as Record<string, any>).markdown.getMarkdown();
@@ -42,6 +43,7 @@
 	onMount(() => {
 		editorRef = new Editor({
 			element,
+			editable: false,
 			extensions: [
 				StarterKit.configure({
 					codeBlock: false
@@ -73,19 +75,6 @@
 			editorProps: {
 				attributes: {
 					class: 'prose prose-sm max-w-none focus:outline-none min-h-[50vh] px-4 py-3'
-				},
-				handleKeyDown: () => !editingRef,
-				handleKeyPress: () => !editingRef,
-				handlePaste: () => !editingRef,
-				handleDrop: () => !editingRef,
-				handleDOMEvents: {
-					beforeinput: (_view: unknown, event: Event) => {
-						if (!editingRef) {
-							event.preventDefault();
-							return true;
-						}
-						return false;
-					}
 				}
 			},
 			onUpdate: ({ editor: e }) => {
@@ -102,12 +91,44 @@
 		});
 		editor = editorRef;
 		oneditor?.(editor);
+
+		// Intercept checkbox clicks in read-only mode: temporarily enable editing
+		// so the TaskItem extension creates a proper transaction, then restore.
+		element.addEventListener('change', (e) => {
+			const target = e.target as HTMLElement;
+			if (
+				target.tagName === 'INPUT' &&
+				(target as HTMLInputElement).type === 'checkbox' &&
+				!editingRef &&
+				!processingCheckbox &&
+				editorRef
+			) {
+				const checked = (target as HTMLInputElement).checked;
+				// Revert the visual toggle — we'll redo it via a proper transaction
+				(target as HTMLInputElement).checked = !checked;
+
+				// Temporarily enable editing, toggle the checkbox, then disable
+				processingCheckbox = true;
+				editorRef.setEditable(true);
+				// Re-trigger the change so the editable code path runs
+				(target as HTMLInputElement).checked = checked;
+				target.dispatchEvent(new Event('change', { bubbles: true }));
+				processingCheckbox = false;
+				// Restore read-only after the transaction processes
+				requestAnimationFrame(() => {
+					if (!editingRef && editorRef) {
+						editorRef.setEditable(false);
+					}
+				});
+			}
+		}, true); // capture phase to run before TaskItem's handler
 	});
 
-	// Sync editing mode ref and editor CSS class
+	// Sync editing mode to editor editable state and CSS class
 	$effect(() => {
 		editingRef = editing;
 		if (editorRef) {
+			editorRef.setEditable(editing);
 			if (editing) {
 				editorRef.view.dom.classList.add('is-editing');
 			} else {
