@@ -135,7 +135,7 @@
 
 <div
 	bind:this={element}
-	class="overflow-hidden rounded-lg border border-gray-200 bg-white"
+	class="overflow-hidden bg-white md:rounded-lg md:border md:border-gray-200"
 	class:filter-incomplete={filter === 'incomplete'}
 	class:filter-completed={filter === 'completed'}
 ></div>

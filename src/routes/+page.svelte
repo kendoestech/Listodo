@@ -55,7 +55,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="flex h-screen flex-col bg-gray-50">
+<div class="flex h-screen flex-col bg-white md:bg-gray-50">
 	<!-- Header -->
 	<header class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
 		<div class="flex min-w-0 items-center gap-3">
@@ -128,7 +128,7 @@
 				</div>
 
 				<!-- Document content -->
-				<div class="px-4 pt-4 md:px-6 md:pt-6">
+				<div class="md:px-6 md:pt-6">
 					<div class="mx-auto max-w-3xl">
 						<Editor
 							content={$files.openFileContent}
