@@ -34,15 +34,9 @@
 	let editorRef: Editor | null = null; // non-reactive ref to avoid effect cycles
 	let editingRef = false; // non-reactive ref for use in editor callbacks
 	let updatingFromProp = false;
-	let processingCheckbox = false; // guard against re-entrant checkbox handler
 
 	function getMarkdown(e: Editor): string {
 		return (e.storage as Record<string, any>).markdown.getMarkdown();
-	}
-
-	/** Find the scrollable ancestor (<main> with overflow-y-auto) */
-	function getScrollParent(): HTMLElement | null {
-		return element?.closest('.overflow-y-auto') as HTMLElement | null;
 	}
 
 	onMount(() => {
@@ -97,8 +91,9 @@
 		editor = editorRef;
 		oneditor?.(editor);
 
-		// Intercept checkbox changes to preserve scroll position and handle
-		// read-only mode toggling.
+		// Intercept checkbox clicks to toggle task items via a direct
+		// ProseMirror transaction.  This avoids toggling editable mode or
+		// re-dispatching events, which cause scroll jumps on mobile.
 		element.addEventListener('change', (e) => {
 			const target = e.target as HTMLElement;
 			if (
@@ -106,46 +101,46 @@
 				(target as HTMLInputElement).type !== 'checkbox'
 			) return;
 
-			const scrollParent = getScrollParent();
-			const savedScroll = scrollParent?.scrollTop ?? 0;
+			if (!editorRef) return;
 
-			if (!editingRef && !processingCheckbox && editorRef) {
-				// Read-only mode: temporarily enable editing so TaskItem creates
-				// a proper ProseMirror transaction for the checkbox toggle.
-				const checked = (target as HTMLInputElement).checked;
-				// Revert the visual toggle — we'll redo it via a proper transaction
-				(target as HTMLInputElement).checked = !checked;
+			// Always handle checkbox toggles ourselves
+			e.stopPropagation();
+			e.preventDefault();
 
-				processingCheckbox = true;
-				editorRef.setEditable(true);
-				// Re-trigger the change so the editable code path runs
-				(target as HTMLInputElement).checked = checked;
-				target.dispatchEvent(new Event('change', { bubbles: true }));
-				processingCheckbox = false;
+			const checked = (target as HTMLInputElement).checked;
 
-				// Restore read-only and scroll position after the transaction
-				requestAnimationFrame(() => {
-					if (!editingRef && editorRef) {
-						editorRef.setEditable(false);
-					}
-					if (scrollParent) scrollParent.scrollTop = savedScroll;
-				});
-			} else if (editingRef && editorRef) {
-				// Editing mode: save and restore selection + scroll so the
-				// checkbox toggle doesn't jump cursor to top of document.
-				const savedSelection = editorRef.state.selection;
-				requestAnimationFrame(() => {
-					if (editorRef) {
-						// Restore the text selection to where it was before
-						const { tr } = editorRef.state;
-						tr.setSelection(savedSelection.map(tr.doc, tr.mapping));
-						editorRef.view.dispatch(tr);
-						// Blur the checkbox so the virtual keyboard doesn't open
-						(target as HTMLInputElement).blur();
-					}
-					if (scrollParent) scrollParent.scrollTop = savedScroll;
-				});
+			// Find the taskItem node that owns this checkbox
+			const pos = editorRef.view.posAtDOM(target, 0);
+			const resolved = editorRef.state.doc.resolve(pos);
+			let taskItemPos: number | null = null;
+			for (let depth = resolved.depth; depth >= 0; depth--) {
+				if (resolved.node(depth).type.name === 'taskItem') {
+					taskItemPos = resolved.before(depth);
+					break;
+				}
 			}
+
+			if (taskItemPos === null) return;
+
+			// Directly set the checked attribute via transaction — no focus,
+			// no editable toggle, no scroll side-effects.
+			const { tr } = editorRef.state;
+			tr.setNodeMarkup(taskItemPos, undefined, {
+				...editorRef.state.doc.nodeAt(taskItemPos)!.attrs,
+				checked
+			});
+			editorRef.view.dispatch(tr);
+
+			// Sync the DOM checkbox to match (ProseMirror may re-render it)
+			(target as HTMLInputElement).checked = checked;
+
+			// In editing mode, restore selection and blur checkbox
+			if (editingRef) {
+				(target as HTMLInputElement).blur();
+			}
+
+			// Emit the updated markdown
+			onchange(getMarkdown(editorRef));
 		}, true); // capture phase to run before TaskItem's handler
 	});
 
