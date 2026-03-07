@@ -137,6 +137,7 @@ export async function navigateToRoot(): Promise<void> {
 }
 
 export async function openFile(fileId: string): Promise<void> {
+	flushPendingSave();
 	files.update((s) => ({ ...s, loading: true, error: null }));
 
 	try {
@@ -170,39 +171,58 @@ export async function openFile(fileId: string): Promise<void> {
 }
 
 export function closeFile(): void {
+	flushPendingSave();
 	files.update((s) => ({ ...s, openFileId: null, openFileContent: null }));
 }
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingSave: { fileId: string; content: string } | null = null;
+
+async function executeSave(fileId: string, content: string): Promise<void> {
+	try {
+		await driveUpdateContent(fileId, content);
+		saveStatus.set('saved');
+		if (savedTimeout) clearTimeout(savedTimeout);
+		savedTimeout = setTimeout(() => saveStatus.set('idle'), 2000);
+	} catch (e) {
+		saveStatus.set('error');
+		files.update((s) => ({
+			...s,
+			error: e instanceof Error ? e.message : 'Failed to save'
+		}));
+	}
+}
+
+export function flushPendingSave(): void {
+	if (saveTimeout && pendingSave) {
+		clearTimeout(saveTimeout);
+		saveTimeout = null;
+		const { fileId, content } = pendingSave;
+		pendingSave = null;
+		executeSave(fileId, content);
+	}
+}
 
 export function saveFile(content: string): void {
 	const state = get(files);
-	if (!state.openFileId) return;
+	const fileId = state.openFileId;
+	if (!fileId) return;
 
 	// Update local state immediately
 	files.update((s) => ({ ...s, openFileContent: content }));
-	setCachedContent(state.openFileId, content);
+	setCachedContent(fileId, content);
 
 	// Debounced save to Drive
 	if (saveTimeout) clearTimeout(saveTimeout);
 	if (savedTimeout) clearTimeout(savedTimeout);
 	saveStatus.set('saving');
 
-	saveTimeout = setTimeout(async () => {
-		const fileId = get(files).openFileId;
-		if (!fileId) return;
+	pendingSave = { fileId, content };
 
-		try {
-			await driveUpdateContent(fileId, content);
-			saveStatus.set('saved');
-			savedTimeout = setTimeout(() => saveStatus.set('idle'), 2000);
-		} catch (e) {
-			saveStatus.set('error');
-			files.update((s) => ({
-				...s,
-				error: e instanceof Error ? e.message : 'Failed to save'
-			}));
-		}
+	saveTimeout = setTimeout(async () => {
+		pendingSave = null;
+		saveTimeout = null;
+		await executeSave(fileId, content);
 	}, 1500);
 }
 
