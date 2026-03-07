@@ -6,6 +6,7 @@
 	import Toolbar from '$lib/components/Toolbar.svelte';
 	import FilterBar, { type Filter } from '$lib/components/FilterBar.svelte';
 	import type { Editor as TiptapEditor } from '@tiptap/core';
+	import { fade } from 'svelte/transition';
 
 	let sidebarOpen = $state(true);
 	let filter = $state<Filter>('all');
@@ -138,17 +139,6 @@
 							oneditor={(e) => (editorInstance = e)}
 							ontick={() => editorTick++}
 						/>
-						<p class="mt-2 text-xs text-gray-400">
-							{#if $saveStatus === 'saving'}
-								Saving...
-							{:else if $saveStatus === 'saved'}
-								Saved to Google Drive
-							{:else if $saveStatus === 'error'}
-								<span class="text-red-500">Save failed</span>
-							{:else}
-								Auto-saves to Google Drive
-							{/if}
-						</p>
 					</div>
 				</div>
 			{:else}
@@ -162,6 +152,20 @@
 							Open sidebar
 						</button>
 					</div>
+				</div>
+			{/if}
+			{#if $saveStatus !== 'idle'}
+				<div
+					class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-2 text-sm shadow-lg {$saveStatus === 'error' ? 'bg-red-600/80 text-white' : 'bg-black/60 text-white'}"
+					transition:fade={{ duration: 150 }}
+				>
+					{#if $saveStatus === 'saving'}
+						Saving...
+					{:else if $saveStatus === 'saved'}
+						Saved to Google Drive
+					{:else if $saveStatus === 'error'}
+						Save failed
+					{/if}
 				</div>
 			{/if}
 		</main>

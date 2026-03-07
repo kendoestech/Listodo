@@ -120,7 +120,7 @@
 
 		<!-- Block elements -->
 		<button onmousedown={cmd((e) => e.chain().focus().toggleCodeBlock().run())}
-			class="rounded px-2 py-1 text-sm transition-colors"
+			class="whitespace-nowrap rounded px-2 py-1 text-sm transition-colors"
 			class:bg-blue-100={editor.isActive('codeBlock')} class:text-blue-700={editor.isActive('codeBlock')}
 			class:text-gray-600={!editor.isActive('codeBlock')} class:hover:bg-gray-200={!editor.isActive('codeBlock')}
 			title="Code Block">{"{ }"}</button>
