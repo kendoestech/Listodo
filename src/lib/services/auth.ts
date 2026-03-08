@@ -1,5 +1,5 @@
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const SCOPES = 'https://www.googleapis.com/auth/drive';
 
 let tokenClient: google.accounts.oauth2.TokenClient | null = null;
 let onAuthCallback: ((success: boolean) => void) | null = null;
