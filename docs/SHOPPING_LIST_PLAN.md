@@ -9,7 +9,7 @@ This is a **proof of concept** focused on: detect shopping list → search store
 ## Architecture
 
 ```
-Browser (SvelteKit SPA)              Separate Backend (Node.js)
+Browser (SvelteKit SPA)              Backend (backend/ in repo)
   │                                    │
   │  1. Parse frontmatter template     │
   │     → extract field names          │
@@ -36,7 +36,7 @@ Browser (SvelteKit SPA)              Separate Backend (Node.js)
 ```
 
 - **No store-specific APIs** — Claude web search provides flexibility for any store
-- **Separate Node.js backend** — keeps the Anthropic API key secure server-side
+- **Node.js backend** (`backend/` folder) — keeps the Anthropic API key secure server-side
 - **Structured outputs** — Claude returns guaranteed-valid JSON via tool use schema
 - **Cost**: ~$0.08–$0.12 per 20-item list (Claude batches searches efficiently)
 
@@ -165,7 +165,7 @@ This means the template is the single source of truth for both the data schema a
 
 ### Phase 1: Backend — Claude Shopping Search Service
 
-**New project: `listodo-backend/`** (separate repo or monorepo subfolder)
+**Location: `backend/`** folder within the Listodo repo
 
 1. **Express/Fastify server** with a single endpoint:
    - `POST /api/shopping/search`
@@ -223,15 +223,23 @@ This means the template is the single source of truth for both the data schema a
 
 6. **Environment**: `ANTHROPIC_API_KEY` stored in server env vars only
 
-### Phase 2: Frontend — Shopping List Detection & Template Engine
+### Phase 2: Frontend — Frontmatter Handling
+
+The YAML frontmatter block must be hidden in normal view but preserved when saving.
+
+**Approach:**
+- When loading a document, `parseShoppingListMeta()` strips the frontmatter from the markdown before passing to Tiptap, but stores it separately
+- When saving, the frontmatter is prepended back to the Tiptap markdown output
+- An "AI > Configure Shopping List" menu option switches to a mode that shows the frontmatter as an editable code block at the top of the document
 
 **File: `src/lib/utils/shopping-list.ts`** (new)
 
-1. `parseShoppingListMeta(markdown: string)` — parse frontmatter, return `{ type, store, storeName, template, fields }` or `null` if not a shopping list
-2. `extractFieldNames(template: string)` — extract `{fieldName}` placeholders from template → `["name", "sku", "aisle", "price", "salePrice"]`
-3. `extractItems(markdown: string)` — extract the first text of each checkbox item (the original item name the user typed)
+1. `parseShoppingListMeta(markdown: string)` — parse and strip frontmatter, return `{ type, store, storeName, template, fields, body }` or `null` if not a shopping list
+2. `extractFieldNames(template: string)` — extract `{fieldName}` placeholders from template, filtering out formatting marks (`{lg}`, `{/lg}`, `{sm}`, `{/sm}`, `{dim}`, `{/dim}`) → `["name", "sku", "aisle", "price", "salePrice"]`
+3. `extractItems(markdown: string)` — extract the original item name from each checkbox line (strip any existing template-formatted content back to the base item name)
 4. `applyTemplate(template: string, result: Record<string, string>)` — fill a template with one result's field values, omitting or replacing empty fields with "—"
-5. `updateItemsWithResults(markdown: string, template: string, results[])` — for each checkbox item, find its matching result by `item` field and replace the item text with the filled template
+5. `updateItemsWithResults(markdown: string, template: string, results[])` — for each checkbox item, find its matching result by `item` field and replace the item line(s) with the filled template
+6. `restoreDocument(frontmatter: string, body: string)` — prepend frontmatter back to body for saving
 
 ### Phase 3: Frontend — AI Button & UI
 
@@ -240,9 +248,12 @@ This means the template is the single source of truth for both the data schema a
 1. Detect shopping list from document content (call `parseShoppingListMeta`)
 2. When detected, show an AI action button (sparkle/wand icon) in the toolbar area
 3. Button opens a dropdown/menu with options:
-   - "Search for prices" — sends items to backend, updates document with results
+   - **"Search for prices"** — strips existing enrichment from all items, sends base item names to backend, updates document with results
+   - **"Configure Shopping List"** — toggles a mode that shows the YAML frontmatter as an editable code block
 4. Show loading state while backend processes
 5. On response, call `updateItemsWithResults()` and push updated markdown back through `saveFile()`
+
+**Re-search behavior:** "Search for prices" always replaces all items — strips existing template formatting back to base item names, re-searches everything, and applies fresh results.
 
 ### Phase 4: Future (not in POC)
 
@@ -255,16 +266,17 @@ This means the template is the single source of truth for both the data schema a
 ## Files to Create/Modify
 
 ### New files:
-- `listodo-backend/` — new backend project (Express + Claude SDK)
-  - `server.ts` — Express server with `/api/shopping/search`
-  - `claude-shopping.ts` — Claude API call with web search tool
-  - `package.json`, `.env.example`, etc.
-- `src/lib/utils/shopping-list.ts` — frontmatter parsing, item extraction, result merging
+- `backend/server.ts` — Express server with `/api/shopping/search`
+- `backend/claude-shopping.ts` — Claude API call with web search tool + dynamic schema builder
+- `backend/package.json` — backend dependencies (express, @anthropic-ai/sdk, cors, dotenv)
+- `backend/.env.example` — `ANTHROPIC_API_KEY=`, `PORT=3001`, `ALLOWED_ORIGIN=http://localhost:5173`
+- `backend/tsconfig.json` — TypeScript config for the backend
+- `src/lib/utils/shopping-list.ts` — frontmatter parsing, item extraction, template engine, result merging
 - `src/lib/components/ShoppingActions.svelte` — AI button + dropdown UI
 
 ### Modified files:
-- `src/routes/+page.svelte` — detect shopping list, render ShoppingActions component
-- `.env` / `.env.example` — add `PUBLIC_BACKEND_URL`
+- `src/routes/+page.svelte` — detect shopping list, render ShoppingActions, handle frontmatter stripping/restoring
+- `.env` / `.env.example` — add `PUBLIC_BACKEND_URL=http://localhost:3001`
 
 ## Verification
 

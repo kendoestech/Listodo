@@ -5,14 +5,117 @@
 	import Editor from '$lib/components/Editor.svelte';
 	import Toolbar from '$lib/components/Toolbar.svelte';
 	import FilterBar, { type Filter } from '$lib/components/FilterBar.svelte';
+	import ShoppingActions from '$lib/components/ShoppingActions.svelte';
 	import type { Editor as TiptapEditor } from '@tiptap/core';
 	import { fade } from 'svelte/transition';
+	import {
+		parseShoppingListMeta,
+		extractItems,
+		stripEnrichment,
+		updateItemsWithResults,
+		restoreDocument,
+		type ShoppingListMeta
+	} from '$lib/utils/shopping-list';
+
+	const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 	let sidebarOpen = $state(true);
 	let filter = $state<Filter>('all');
 	let editing = $state(false);
 	let editorInstance = $state<TiptapEditor | null>(null);
 	let editorTick = $state(0);
+	let aiSearching = $state(false);
+
+	// Shopping list state — derived from the raw file content
+	let shoppingMeta = $state<ShoppingListMeta | null>(null);
+
+	// Parse frontmatter whenever file content changes
+	$effect(() => {
+		const raw = $files.openFileContent;
+		if (raw) {
+			shoppingMeta = parseShoppingListMeta(raw);
+		} else {
+			shoppingMeta = null;
+		}
+	});
+
+	// Content to show in the editor (body without frontmatter for shopping lists)
+	let editorContent = $derived(shoppingMeta ? shoppingMeta.body : ($files.openFileContent ?? ''));
+
+	// Wrap saveFile to restore frontmatter for shopping lists
+	function handleEditorChange(markdown: string) {
+		if (shoppingMeta) {
+			saveFile(restoreDocument(shoppingMeta.rawFrontmatter, markdown));
+		} else {
+			saveFile(markdown);
+		}
+	}
+
+	async function handleShoppingSearch() {
+		if (!shoppingMeta) return;
+		aiSearching = true;
+		try {
+			// Strip existing enrichment to get clean item names
+			const cleanBody = stripEnrichment(shoppingMeta.body);
+			const items = extractItems(cleanBody);
+			if (items.length === 0) return;
+
+			const res = await fetch(`${BACKEND_URL}/api/shopping/search`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					storeUrl: shoppingMeta.store,
+					storeName: shoppingMeta.storeName,
+					fields: shoppingMeta.fields,
+					items
+				})
+			});
+
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({ error: 'Search failed' }));
+				throw new Error(err.error || 'Search failed');
+			}
+
+			const { results } = await res.json();
+
+			// Update the body with enriched items
+			const updatedBody = updateItemsWithResults(cleanBody, shoppingMeta.template, results);
+			const fullDoc = restoreDocument(shoppingMeta.rawFrontmatter, updatedBody);
+			saveFile(fullDoc);
+
+			// Re-parse so editor picks up the new content
+			shoppingMeta = parseShoppingListMeta(fullDoc);
+		} catch (e) {
+			console.error('Shopping search failed:', e);
+			alert(e instanceof Error ? e.message : 'Shopping search failed');
+		} finally {
+			aiSearching = false;
+		}
+	}
+
+	const DEFAULT_FRONTMATTER = `---
+type: shopping-list
+store: https://www.example.com
+store-name: Store Name
+template: |
+  - [ ] {lg}{item}{/lg}\\
+    {dim}{sm}{sku}{/sm}{/dim}\\
+    {dim}{aisle}{/dim} {price}
+---
+`;
+
+	function handleMakeShoppingList() {
+		const raw = $files.openFileContent;
+		if (!raw || shoppingMeta) return;
+		const fullDoc = DEFAULT_FRONTMATTER + raw;
+		saveFile(fullDoc);
+		shoppingMeta = parseShoppingListMeta(fullDoc);
+	}
+
+	function handleConfigureShopping() {
+		// TODO: Toggle frontmatter editing mode
+		alert('Configure Shopping List — coming soon');
+	}
 
 	// Reset editing mode when switching files
 	let prevFileId: string | null = null;
@@ -88,6 +191,22 @@
 				<img src={$auth.user.picture} alt="" class="h-7 w-7 rounded-full" />
 				<span class="hidden text-sm text-gray-600 sm:inline">{$auth.user.name}</span>
 			{/if}
+			{#if shoppingMeta}
+				<ShoppingActions
+					meta={shoppingMeta}
+					onsearch={handleShoppingSearch}
+					onconfigure={handleConfigureShopping}
+					searching={aiSearching}
+				/>
+			{:else if openFileName}
+				<button
+					onclick={handleMakeShoppingList}
+					class="rounded border border-gray-300 px-2 py-1 text-sm text-gray-500 hover:bg-gray-50"
+					title="Convert to shopping list"
+				>
+					🛒
+				</button>
+			{/if}
 			{#if openFileName}
 				<button
 					onclick={() => (editing = !editing)}
@@ -132,8 +251,8 @@
 				<div class="md:px-6 md:pt-6">
 					<div class="mx-auto max-w-3xl">
 						<Editor
-							content={$files.openFileContent}
-							onchange={saveFile}
+							content={editorContent}
+							onchange={handleEditorChange}
 							{filter}
 							{editing}
 							oneditor={(e) => (editorInstance = e)}
