@@ -29,26 +29,32 @@
 	// Shopping list state — derived from the raw file content
 	let shoppingMeta = $state<ShoppingListMeta | null>(null);
 
-	// Parse frontmatter whenever file content changes
+	// Parse frontmatter whenever file content changes.
+	// Only update shoppingMeta if the frontmatter itself changed,
+	// not on every body edit (avoids re-triggering the editor).
 	$effect(() => {
 		const raw = $files.openFileContent;
-		if (raw) {
-			shoppingMeta = parseShoppingListMeta(raw);
-		} else {
+		if (!raw) {
 			shoppingMeta = null;
+			return;
+		}
+		const parsed = parseShoppingListMeta(raw);
+		if (parsed?.rawFrontmatter !== shoppingMeta?.rawFrontmatter) {
+			shoppingMeta = parsed;
 		}
 	});
 
 	// Content to show in the editor (body without frontmatter for shopping lists)
 	let editorContent = $derived(shoppingMeta ? shoppingMeta.body : ($files.openFileContent ?? ''));
 
-	// Wrap saveFile to restore frontmatter for shopping lists
+	// Wrap saveFile to restore frontmatter for shopping lists.
+	// Guard against spurious calls when the editor re-renders from a prop change.
 	function handleEditorChange(markdown: string) {
-		if (shoppingMeta) {
-			saveFile(restoreDocument(shoppingMeta.rawFrontmatter, markdown));
-		} else {
-			saveFile(markdown);
-		}
+		const fullDoc = shoppingMeta
+			? restoreDocument(shoppingMeta.rawFrontmatter, markdown)
+			: markdown;
+		if (fullDoc === $files.openFileContent) return;
+		saveFile(fullDoc);
 	}
 
 	async function handleShoppingSearch() {
